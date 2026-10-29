@@ -86,6 +86,10 @@
         <Property Id='DiskPrompt' Value='mdweave Installation'/>
 
         <Directory Id='TARGETDIR' Name='SourceDir'>
+            <Directory Id="ProgramMenuFolder">
+                <Directory Id="ApplicationProgramsFolder" Name="MDWeave"/>
+            </Directory>
+
             <Directory Id='$(var.PlatformProgramFilesFolder)' Name='PFiles'>
                 <Directory Id='APPLICATIONFOLDER' Name='mdweave'>
                     <!--
@@ -132,6 +136,21 @@
             </Directory>
         </Directory>
 
+        <DirectoryRef Id="ApplicationProgramsFolder">
+            <Component Id="ApplicationShortcut" Guid="*">
+                <Shortcut Id="ApplicationStartMenuShortcut"
+                          Name="MDWeave"
+                          Description="Documents to Markdown Converter"
+                          Target="[#exe0]"
+                          WorkingDirectory="Bin"
+                          Icon="ProductICO" />
+                
+                <RemoveFolder Id="CleanUpShortCut" Directory="ApplicationProgramsFolder" On="uninstall"/>
+                
+                <RegistryValue Root="HKCU" Key="Software\HasanSulthoni\MDWeave" Name="installed" Type="integer" Value="1" KeyPath="yes"/>
+            </Component>
+        </DirectoryRef>
+
         <Feature
             Id='Binaries'
             Title='Application'
@@ -150,6 +169,8 @@
             <ComponentRef Id='binary0'/>
 
             <ComponentRef Id="cmpPdfiumDll" />
+
+            <ComponentRef Id="ApplicationShortcut" />
 
             <Feature
                 Id='Environment'
