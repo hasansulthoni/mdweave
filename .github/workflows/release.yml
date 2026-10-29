@@ -4,13 +4,13 @@ name: Release Build
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
 
 jobs:
   build-and-release:
     name: Build on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
-    
+
     # Menjalankan 3 sistem operasi secara bersamaan (paralel)
     strategy:
       matrix:
@@ -41,9 +41,21 @@ jobs:
         if: matrix.os == 'windows-latest'
         run: cargo install cargo-wix
 
+      - name: Build Release Executable (Windows)
+        if: matrix.os == 'windows-latest'
+        run: cargo build --release
+
+      - name: Compress Executable with UPX (Windows)
+        if: matrix.os == 'windows-latest'
+        uses: svenstaro/upx-action@v2
+        with:
+          files: target/release/mdweave.exe
+          args: --best --lzma
+          strip: false
+
       - name: Build .msi (Windows)
         if: matrix.os == 'windows-latest'
-        run: cargo wix --nocapture
+        run: cargo wix --nocapture --no-build
 
       # ==========================================
       # 3. MACOS (.app.zip)
@@ -71,6 +83,6 @@ jobs:
           files: |
             target/debian/*.deb
             target/wix/*.msi
-            target/release/bundle/osx/RustMarkItDown-macOS.zip
+            target/release/bundle/osx/MDWeave-macOS.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
