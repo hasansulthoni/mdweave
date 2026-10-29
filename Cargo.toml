@@ -1,0 +1,25 @@
+[package]
+name = "mdweave"
+version = "0.1.0"
+edition = "2026"
+authors = ["Hasan Sulthoni <hsn.sulthoni@gmail.com>"]
+license = "MIT"
+description = "Documents to Markdown Converter"
+repository = "https://github.com/hasansulthoni/mdweave"
+
+[dependencies]
+eframe = "0.27.2"
+rfd = "0.14.1"
+calamine = "0.37.0"
+pdf-extract = "0.7.3"
+zip = "0.6.3"
+quick-xml = "0.31.0"
+pdfium-render = "0.8.21"
+rusty-tesseract = "1.1.10"
+image = "0.24.7"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+strip = true
