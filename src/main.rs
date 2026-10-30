@@ -121,7 +121,7 @@ impl eframe::App for MarkItDownApp {
                         if let Some(path) = FileDialog::new()
                             .add_filter(
                                 "Documents",
-                                &["txt", "md", "csv", "xlsx", "xls", "pdf", "docx"],
+                                &["txt", "md", "csv", "xlsx", "xls", "pdf", "docx", "doc", "pptx", "ppt"],
                             )
                             .pick_file()
                         {
@@ -216,6 +216,9 @@ fn konversi_ke_markdown(path: &PathBuf) -> String {
         }
         "csv" | "xlsx" | "xls" => parse_spreadsheet(path),
         "docx" => parse_docx(path),
+        "doc" => "Format biner lawas (.doc) belum didukung secara native. Silakan buka file tersebut di Word dan lakukan 'Save As' ke format .docx terlebih dahulu.".to_string(),
+        "pptx" => parse_pptx(path),
+        "ppt" => "Format biner lawas (.ppt) belum didukung secara native. Silakan buka file tersebut di PowerPoint dan lakukan 'Save As' ke format .pptx terlebih dahulu.".to_string(),
         "pdf" => {
             let standard_text = parse_pdf(path);
 
@@ -328,6 +331,92 @@ fn parse_docx(path: &PathBuf) -> String {
             Err(_) => break,
             _ => (),
         }
+    }
+
+    markdown
+}
+
+fn parse_pptx(path: &PathBuf) -> String {
+    let file = match fs::File::open(path) {
+        Ok(f) => f,
+        Err(_) => return "Gagal membuka file PPTX.".to_string(),
+    };
+
+    let mut archive = match zip::ZipArchive::new(file) {
+        Ok(z) => z,
+        Err(_) => return "File bukan arsip PPTX yang valid.".to_string(),
+    };
+
+    let mut markdown = String::new();
+    
+    let mut slide_files: Vec<String> = Vec::new();
+    for i in 0..archive.len() {
+        if let Ok(file) = archive.by_index(i) {
+            let name = file.name().to_string();
+            if name.starts_with("ppt/slides/slide") && name.ends_with(".xml") {
+                slide_files.push(name);
+            }
+        }
+    }
+
+    slide_files.sort_by(|a, b| {
+        let extract_num = |s: &str| -> u32 {
+            s.replace("ppt/slides/slide", "")
+             .replace(".xml", "")
+             .parse()
+             .unwrap_or(0)
+        };
+        extract_num(a).cmp(&extract_num(b))
+    });
+
+    for (index, slide_name) in slide_files.iter().enumerate() {
+        markdown.push_str(&format!("## Slide {}\n\n", index + 1));
+
+        let mut slide_xml = match archive.by_name(slide_name) {
+            Ok(f) => f,
+            Err(_) => continue,
+        };
+
+        let mut xml_content = String::new();
+        if slide_xml.read_to_string(&mut xml_content).is_ok() {
+            use quick_xml::Reader;
+            use quick_xml::events::Event;
+
+            let mut reader = Reader::from_str(&xml_content);
+            let mut in_text_node = false;
+            let mut has_text = false;
+
+            loop {
+                match reader.read_event() {
+                    Ok(Event::Start(ref e)) if e.name().as_ref() == b"a:t" => {
+                        in_text_node = true;
+                    }
+                    Ok(Event::End(ref e)) if e.name().as_ref() == b"a:p" => {
+                        markdown.push_str("\n\n");
+                    }
+                    Ok(Event::Text(e)) if in_text_node => {
+                        if let Ok(text) = e.unescape() {
+                            markdown.push_str(&text);
+                            has_text = true;
+                        }
+                        in_text_node = false;
+                    }
+                    Ok(Event::Eof) => break,
+                    Err(_) => break,
+                    _ => (),
+                }
+            }
+
+            if !has_text {
+                markdown.push_str("*(Slide kosong atau hanya berisi gambar/grafik)*\n\n");
+            }
+        }
+        
+        markdown.push_str("---\n\n");
+    }
+
+    if markdown.is_empty() {
+        return "Tidak ada teks yang dapat diekstrak dari file PPTX ini (mungkin hanya berisi gambar).".to_string();
     }
 
     markdown
